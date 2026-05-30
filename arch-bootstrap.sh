@@ -191,6 +191,18 @@ install_packages() {
   unmount_all "$DEST"
 }
 
+# Initialize and populate the pacman keyring from the shipped archlinux-keyring,
+# so the finished system trusts package signatures out of the box (no chicken-egg
+# where verifying archlinux-keyring would itself need a populated keyring).
+init_keyring() {
+  local DEST=$1
+  debug "initialize pacman keyring"
+  mount_pseudo "$DEST"
+  LC_ALL=C chroot "$DEST" /usr/bin/pacman-key --init
+  LC_ALL=C chroot "$DEST" /usr/bin/pacman-key --populate archlinux
+  unmount_all "$DEST"
+}
+
 show_usage() {
   stderr "Usage: $(basename "$0") [-c] [-r REPO_URL] [-d DOWNLOAD_DIR] DESTDIR"
   stderr "       -c   chroot into an already-bootstrapped DESTDIR (no arch-install-scripts needed)"
@@ -238,6 +250,7 @@ main() {
   configure_pacman "$DEST" "$ARCH"
   configure_minimal_system "$DEST"
   install_packages "$ARCH" "$DEST" "${BASIC_PACKAGES[*]} ${EXTRA_PACKAGES[*]}"
+  init_keyring "$DEST" # trust package signatures out of the box
   configure_pacman "$DEST" "$ARCH" # Pacman must be re-configured
   restore_pacman_conf "$DEST" "$DOWNLOAD_DIR" # swap temp conf for the official one
   [[ -z "$PRESERVE_DOWNLOAD_DIR" ]] && rm -rf "$DOWNLOAD_DIR"
