@@ -12,7 +12,7 @@
 # Usage:
 #
 #   # arch-bootstrap destination
-#   # arch-bootstrap -a x86_64 -r ftp://ftp.archlinux.org destination-64
+#   # arch-bootstrap -r https://geo.mirror.pkgbuild.com destination
 #
 # And then you can chroot to the destination directory (user: root, password: root):
 #
@@ -29,8 +29,7 @@ PACMAN_PACKAGES=(
 BASIC_PACKAGES=(${PACMAN_PACKAGES[*]} filesystem base)
 EXTRA_PACKAGES=(coreutils bash grep gawk file tar gzip systemd sed)
 DEFAULT_REPO_URL="https://geo.mirror.pkgbuild.com"
-DEFAULT_ARM_REPO_URL="http://mirror.archlinuxarm.org"
-DEFAULT_X86_REPO_URL="http://mirror.archlinux32.org"
+ARCH="x86_64"
 
 stderr() { 
   echo "$@" >&2 
@@ -76,33 +75,14 @@ uncompress() {
 
 ###
 
-get_default_repo() {
-  local ARCH=$1
-  if [[ "$ARCH" == arm* || "$ARCH" == aarch64 ]]; then
-    echo $DEFAULT_ARM_REPO_URL
-  elif [[ "$ARCH" == i*86 || "$ARCH" == pentium4 ]]; then
-    echo $DEFAULT_X86_REPO_URL
-  else
-    echo $DEFAULT_REPO_URL
-  fi
-}
-
 get_core_repo_url() {
   local REPO_URL=$1 ARCH=$2
-  if [[ "$ARCH" == arm* || "$ARCH" == aarch64 || "$ARCH" == i*86 || "$ARCH" == pentium4 ]]; then
-    echo "${REPO_URL%/}/$ARCH/core"
-  else
-    echo "${REPO_URL%/}/core/os/$ARCH"
-  fi
+  echo "${REPO_URL%/}/core/os/$ARCH"
 }
 
 get_template_repo_url() {
   local REPO_URL=$1 ARCH=$2
-  if [[ "$ARCH" == arm* || "$ARCH" == aarch64 || "$ARCH" == i*86 || "$ARCH" == pentium4 ]]; then
-    echo "${REPO_URL%/}/$ARCH/\$repo"
-  else
-    echo "${REPO_URL%/}/\$repo/os/$ARCH"
-  fi
+  echo "${REPO_URL%/}/\$repo/os/$ARCH"
 }
 
 configure_pacman() {
@@ -156,15 +136,6 @@ install_pacman_packages() {
     debug "uncompress package: $FILEPATH"
     uncompress "$FILEPATH" "$DEST"
   done
-}
-
-configure_static_qemu() {
-  local ARCH=$1 DEST=$2
-  [[ "$ARCH" == arm* ]] && ARCH=arm
-  QEMU_STATIC_BIN=$(which qemu-$ARCH-static || echo )
-  [[ -e "$QEMU_STATIC_BIN" ]] ||\
-    { debug "no static qemu for $ARCH, ignoring"; return 0; }
-  cp "$QEMU_STATIC_BIN" "$DEST/usr/bin"
 }
 
 mount_pseudo() {
@@ -221,25 +192,21 @@ install_packages() {
 }
 
 show_usage() {
-  stderr "Usage: $(basename "$0") [-q] [-c] [-a i486|i686|pentium4|x86_64|arm|aarch64] [-r REPO_URL] [-d DOWNLOAD_DIR] DESTDIR"
+  stderr "Usage: $(basename "$0") [-c] [-r REPO_URL] [-d DOWNLOAD_DIR] DESTDIR"
   stderr "       -c   chroot into an already-bootstrapped DESTDIR (no arch-install-scripts needed)"
 }
 
 main() {
   # Process arguments and options
   test $# -eq 0 && set -- "-h"
-  local ARCH=
   local REPO_URL=
-  local USE_QEMU=
   local CHROOT_ONLY=
   local DOWNLOAD_DIR=
   local PRESERVE_DOWNLOAD_DIR=
 
-  while getopts "qca:r:d:h" ARG; do
+  while getopts "cr:d:h" ARG; do
     case "$ARG" in
-      a) ARCH=$OPTARG;;
       r) REPO_URL=$OPTARG;;
-      q) USE_QEMU=true;;
       c) CHROOT_ONLY=true;;
       d) DOWNLOAD_DIR=$OPTARG
          PRESERVE_DOWNLOAD_DIR=true;;
@@ -249,8 +216,7 @@ main() {
   shift $(($OPTIND-1))
   test $# -eq 1 || { show_usage; return 1; }
 
-  [[ -z "$ARCH" ]] && ARCH=$(uname -m)
-  [[ -z "$REPO_URL" ]] &&REPO_URL=$(get_default_repo "$ARCH")
+  [[ -z "$REPO_URL" ]] && REPO_URL=$DEFAULT_REPO_URL
 
   local DEST=$1
 
@@ -271,7 +237,6 @@ main() {
   install_pacman_packages "${BASIC_PACKAGES[*]}" "$DEST" "$LIST" "$DOWNLOAD_DIR"
   configure_pacman "$DEST" "$ARCH"
   configure_minimal_system "$DEST"
-  [[ -n "$USE_QEMU" ]] && configure_static_qemu "$ARCH" "$DEST"
   install_packages "$ARCH" "$DEST" "${BASIC_PACKAGES[*]} ${EXTRA_PACKAGES[*]}"
   configure_pacman "$DEST" "$ARCH" # Pacman must be re-configured
   restore_pacman_conf "$DEST" "$DOWNLOAD_DIR" # swap temp conf for the official one
