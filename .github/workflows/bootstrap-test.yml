@@ -34,14 +34,14 @@ jobs:
         run: |
           set -eux
           DEST=/tmp/myarch
+          # CI-only: bind the root onto itself FIRST (the runner's $DEST is a dir on /,
+          # not a mount) so CheckSpace can resolve the cachedir mountpoint. Must precede
+          # the pseudo-fs mounts; a plain --bind after them would shadow proc/sys/dev.
+          sudo mount --bind "$DEST" "$DEST"
           sudo mount --types proc /proc "$DEST/proc"
           sudo mount --rbind /sys "$DEST/sys"
           sudo mount --rbind /dev "$DEST/dev"
-          # CI-only: bind the root onto itself so pacman CheckSpace can resolve the
-          # cachedir mountpoint (the runner's $DEST is just a dir on /, not a mount).
-          sudo mount --bind "$DEST" "$DEST"
-          # CI-only: pacman CheckSpace reads /etc/mtab to enumerate mount points;
-          # point it at the mounted proc (a booted system gets this from systemd).
+          # CI-only: /etc/mtab feeds CheckSpace's mount-point list (systemd provides it on a real system)
           sudo ln -sf /proc/self/mounts "$DEST/etc/mtab"
           sudo cp /etc/resolv.conf "$DEST/etc/resolv.conf"
           sudo chroot "$DEST" pacman-key --list-keys            # keyring populated
