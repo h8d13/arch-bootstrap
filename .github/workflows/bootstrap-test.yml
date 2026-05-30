@@ -16,8 +16,8 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install host dependencies
-        run: sudo apt-get update && sudo apt-get install -y zstd
-        # bash, coreutils, curl, sed, gawk, tar, gzip, chroot, xz
+        run: sudo apt-get update
+        # bash, coreutils, curl, sed, gawk, tar, gzip, chroot, xz, zstd - all already on base image.
 
       - name: Bootstrap a base Arch system
         run: sudo ./arch-bootstrap.sh /tmp/myarch
@@ -40,6 +40,9 @@ jobs:
           # CI-only: bind the root onto itself so pacman CheckSpace can resolve the
           # cachedir mountpoint (the runner's $DEST is just a dir on /, not a mount).
           sudo mount --bind "$DEST" "$DEST"
+          # CI-only: pacman CheckSpace reads /etc/mtab to enumerate mount points;
+          # point it at the mounted proc (a booted system gets this from systemd).
+          sudo ln -sf /proc/self/mounts "$DEST/etc/mtab"
           sudo cp /etc/resolv.conf "$DEST/etc/resolv.conf"
           sudo chroot "$DEST" pacman-key --list-keys            # keyring populated
           sudo chroot "$DEST" pacman -Sy --noconfirm            # repos reachable
