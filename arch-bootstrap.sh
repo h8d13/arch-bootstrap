@@ -221,8 +221,9 @@ init_keyring() {
 }
 
 show_usage() {
-	stderr "Usage: $(basename "$0") [-c] [-r REPO_URL] [-d DOWNLOAD_DIR] DESTDIR"
-	stderr "       -c   chroot into an already-bootstrapped DESTDIR (no arch-install-scripts needed)"
+	stderr "Usage: $(basename "$0") [-c] [-r REPO_URL] [-d DOWNLOAD_DIR] DESTDIR [CMD...]"
+	stderr "       -c   chroot into an already-bootstrapped DESTDIR and run CMD (default: bash);"
+	stderr "            no arch-install-scripts needed on the host"
 }
 
 main() {
@@ -248,7 +249,7 @@ main() {
 		esac
 	done
 	shift $(($OPTIND - 1))
-	test $# -eq 1 || {
+	test $# -ge 1 || {
 		show_usage
 		return 1
 	}
@@ -256,11 +257,23 @@ main() {
 	[[ -z "$REPO_URL" ]] && REPO_URL=$DEFAULT_REPO_URL
 
 	local DEST=$1
+	shift
 
-	# Chroot-only mode: reuse our mount logic instead of arch-chroot
+	# Chroot-only mode: reuse our mount logic instead of arch-chroot.
+	# Args after DESTDIR run as a command in the chroot (default: interactive bash).
 	[[ -n "$CHROOT_ONLY" ]] && {
-		enter_chroot "$DEST" /bin/bash
+		if [[ $# -gt 0 ]]; then
+			enter_chroot "$DEST" "$@"
+		else
+			enter_chroot "$DEST" /bin/bash
+		fi
 		return 0
+	}
+
+	# Bootstrap mode takes no extra arguments
+	test $# -eq 0 || {
+		show_usage
+		return 1
 	}
 
 	local REPO=$(get_core_repo_url "$REPO_URL" "$ARCH")

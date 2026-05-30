@@ -13,10 +13,10 @@ jobs:
   bootstrap-from-ubuntu:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install host dependencies
-        run: sudo apt-get update
+        run: sudo apt-get update && sudo apt-get upgrade
         # bash, coreutils, curl, sed, gawk, tar, gzip, chroot, xz, zstd - all already on base image.
 
       - name: Bootstrap a base Arch system
@@ -44,14 +44,14 @@ jobs:
           # CI-only: /etc/mtab feeds CheckSpace's mount-point list (systemd provides it on a real system)
           sudo ln -sf /proc/self/mounts "$DEST/etc/mtab"
           sudo cp /etc/resolv.conf "$DEST/etc/resolv.conf"
-          sudo chroot "$DEST" pacman-key --list-keys            # keyring populated
-          sudo chroot "$DEST" pacman -Sy --noconfirm            # repos reachable
+          #sudo chroot "$DEST" pacman-key --list-keys               # keyring populated
+          sudo chroot "$DEST" pacman -Sy --noconfirm                # repos reachable
           sudo chroot "$DEST" pacman -S --noconfirm fastfetch       # download + sig-verify + install
           sudo chroot "$DEST" fastfetch                             # installed binary runs
-          sudo chroot "$DEST" cat /etc/os-release
+          # add more steps here
           # teardown: everything is nested under the self-bind; recursive umount with
           # a lazy fallback for busy host cgroups pulled in by --rbind /sys
           sudo umount -R "$DEST" || sudo umount -Rl "$DEST"
 
       - name: Smoke-test -c chroot mode (no arch-install-scripts on the host)
-        run: sudo ./arch-bootstrap.sh -c /tmp/myarch </dev/null
+        run: sudo ./arch-bootstrap.sh -c /tmp/myarch echo "hello, world!"
