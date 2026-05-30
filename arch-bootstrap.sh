@@ -23,8 +23,8 @@ set -e -u -o pipefail
 # Packages needed by pacman (see get-pacman-dependencies.sh)
 PACMAN_PACKAGES=(
   acl archlinux-keyring attr brotli bzip2 curl expat glibc gpgme libarchive
-  libassuan libgpg-error libnghttp2 libnghttp3 libssh2 lzo openssl pacman pacman-mirrorlist xz zlib
-  krb5 e2fsprogs keyutils libidn2 libunistring gcc-libs lz4 libpsl icu libunistring zstd libxml2
+  libassuan libgpg-error libnghttp2 libnghttp3 libngtcp2 libssh2 lzo openssl pacman pacman-mirrorlist xz zlib
+  krb5 e2fsprogs keyutils libidn2 libunistring libgcc libstdc++ lz4 libpsl icu libseccomp zstd libxml2
 )
 BASIC_PACKAGES=(${PACMAN_PACKAGES[*]} filesystem base)
 EXTRA_PACKAGES=(coreutils bash grep gawk file tar gzip systemd sed)
@@ -145,7 +145,8 @@ install_pacman_packages() {
   debug "pacman package and dependencies: $BASIC_PACKAGES"
   
   for PACKAGE in $BASIC_PACKAGES; do
-    local FILE=$(echo "$LIST" | grep -m1 "^$PACKAGE-[[:digit:]].*\(\.gz\|\.xz\|\.zst\)$")
+    local ESC_PACKAGE=$(echo "$PACKAGE" | sed 's/+/%2B/g')
+    local FILE=$(echo "$LIST" | grep -m1 "^$ESC_PACKAGE-[[:digit:]].*\(\.gz\|\.xz\|\.zst\)$")
     test "$FILE" || { debug "Error: cannot find package: $PACKAGE"; return 1; }
     local FILEPATH="$DOWNLOAD_DIR/$FILE"
     
@@ -169,7 +170,7 @@ install_packages() {
   local ARCH=$1 DEST=$2 PACKAGES=$3
   debug "install packages: $PACKAGES"
   LC_ALL=C chroot "$DEST" /usr/bin/pacman \
-    --noconfirm --arch $ARCH -Sy --overwrite \* $PACKAGES
+    --noconfirm --disable-sandbox --arch $ARCH -Sy --overwrite \* $PACKAGES
 }
 
 show_usage() {
