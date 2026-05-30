@@ -1,0 +1,5 @@
+# enforces:
+## tab = 4 spaces 
+## no whitespaces
+
+## shfmt -i 0 -w -d .
