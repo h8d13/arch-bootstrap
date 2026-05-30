@@ -1,7 +1,11 @@
-# enforces:
-## tab = 4 spaces (per .editorconfig)
+# enforces (on shell scripts):
+## tab indentation, shown 4 wide (per .editorconfig)
 ## no trailing whitespace, final newline
 ## shfmt -i 0 (reads .editorconfig)
+#
+# This file is YAML: indentation is 2 spaces (tabs are invalid in YAML).
+# setup:  pre-commit install     # runs on every commit
+# manual: pre-commit run --all-files
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
