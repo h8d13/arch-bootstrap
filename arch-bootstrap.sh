@@ -167,6 +167,15 @@ configure_static_qemu() {
   cp "$QEMU_STATIC_BIN" "$DEST/usr/bin"
 }
 
+mount_pseudo() {
+  local DEST=$1
+  LC_ALL=C mount --types proc /proc "$DEST/proc"
+  LC_ALL=C mount --rbind /sys "$DEST/sys"
+  LC_ALL=C mount --make-rslave "$DEST/sys"
+  LC_ALL=C mount --rbind /dev "$DEST/dev"
+  LC_ALL=C mount --make-rslave "$DEST/dev"
+}
+
 unmount_all() {
   local DEST=$1
   for m in proc sys dev; do
@@ -174,21 +183,46 @@ unmount_all() {
   done
 }
 
+# Enter the rootfs without depending on arch-install-scripts (arch-chroot).
+# The host may be any GNU distro, so we reuse our own mount logic.
+enter_chroot() {
+  local DEST=$1; shift
+  trap "unmount_all '$DEST'" EXIT KILL TERM
+  mount_pseudo "$DEST"
+  [[ -e /etc/resolv.conf ]] && cp "/etc/resolv.conf" "$DEST/etc/resolv.conf"
+  LC_ALL=C chroot "$DEST" "$@" || true
+  unmount_all "$DEST"
+}
+
+# Replace the bootstrap-temp pacman.conf (SigLevel=Never, curl -k, no DownloadUser)
+# with the official one so the finished system is configured normally and securely.
+# Source is offline: the .pacnew pacman may have written, else the pristine conf
+# shipped inside the cached pacman package.
+restore_pacman_conf() {
+  local DEST=$1 DOWNLOAD_DIR=$2 CONF="$DEST/etc/pacman.conf"
+  if [[ -e "$CONF.pacnew" ]]; then
+    debug "restore official pacman.conf (from .pacnew)"
+    mv "$CONF.pacnew" "$CONF"
+    return 0
+  fi
+  local PKG=$(echo "$DOWNLOAD_DIR"/pacman-[0-9]*.pkg.tar.*)
+  [[ -e "$PKG" ]] || { debug "warning: pacman package not found, keeping temp pacman.conf"; return 0; }
+  debug "restore official pacman.conf (from $PKG)"
+  tar --zstd -xf "$PKG" -C "$DEST" etc/pacman.conf
+}
+
 install_packages() {
   local ARCH=$1 DEST=$2 PACKAGES=$3
   debug "install packages: $PACKAGES"
-  LC_ALL=C mount --types proc /proc "$DEST/proc"
-  LC_ALL=C mount --rbind /sys "$DEST/sys"
-  LC_ALL=C mount --make-rslave "$DEST/sys"
-  LC_ALL=C mount --rbind /dev "$DEST/dev"
-  LC_ALL=C mount --make-rslave "$DEST/dev"
+  mount_pseudo "$DEST"
   LC_ALL=C chroot "$DEST" /usr/bin/pacman \
     --noconfirm --disable-sandbox --arch $ARCH -Sy --overwrite \* $PACKAGES
   unmount_all "$DEST"
 }
 
 show_usage() {
-  stderr "Usage: $(basename "$0") [-q] [-a i486|i686|pentium4|x86_64|arm|aarch64] [-r REPO_URL] [-d DOWNLOAD_DIR] DESTDIR"
+  stderr "Usage: $(basename "$0") [-q] [-c] [-a i486|i686|pentium4|x86_64|arm|aarch64] [-r REPO_URL] [-d DOWNLOAD_DIR] DESTDIR"
+  stderr "       -c   chroot into an already-bootstrapped DESTDIR (no arch-install-scripts needed)"
 }
 
 main() {
@@ -197,14 +231,16 @@ main() {
   local ARCH=
   local REPO_URL=
   local USE_QEMU=
+  local CHROOT_ONLY=
   local DOWNLOAD_DIR=
   local PRESERVE_DOWNLOAD_DIR=
-  
-  while getopts "qa:r:d:h" ARG; do
+
+  while getopts "qca:r:d:h" ARG; do
     case "$ARG" in
       a) ARCH=$OPTARG;;
       r) REPO_URL=$OPTARG;;
       q) USE_QEMU=true;;
+      c) CHROOT_ONLY=true;;
       d) DOWNLOAD_DIR=$OPTARG
          PRESERVE_DOWNLOAD_DIR=true;;
       *) show_usage; return 1;;
@@ -212,11 +248,15 @@ main() {
   done
   shift $(($OPTIND-1))
   test $# -eq 1 || { show_usage; return 1; }
-  
+
   [[ -z "$ARCH" ]] && ARCH=$(uname -m)
   [[ -z "$REPO_URL" ]] &&REPO_URL=$(get_default_repo "$ARCH")
-  
+
   local DEST=$1
+
+  # Chroot-only mode: reuse our mount logic instead of arch-chroot
+  [[ -n "$CHROOT_ONLY" ]] && { enter_chroot "$DEST" /bin/bash; return 0; }
+
   local REPO=$(get_core_repo_url "$REPO_URL" "$ARCH")
   [[ -z "$DOWNLOAD_DIR" ]] && DOWNLOAD_DIR=$(mktemp -d)
   mkdir -p "$DOWNLOAD_DIR"
@@ -234,12 +274,14 @@ main() {
   [[ -n "$USE_QEMU" ]] && configure_static_qemu "$ARCH" "$DEST"
   install_packages "$ARCH" "$DEST" "${BASIC_PACKAGES[*]} ${EXTRA_PACKAGES[*]}"
   configure_pacman "$DEST" "$ARCH" # Pacman must be re-configured
+  restore_pacman_conf "$DEST" "$DOWNLOAD_DIR" # swap temp conf for the official one
   [[ -z "$PRESERVE_DOWNLOAD_DIR" ]] && rm -rf "$DOWNLOAD_DIR"
   
   debug "Done!"
-  debug 
-  debug "You may now chroot or arch-chroot from package arch-install-scripts:"
-  debug "$ sudo arch-chroot $DEST"
+  debug
+  debug "Enter the new system (no arch-install-scripts required):"
+  debug "$ sudo $(basename "$0") -c $DEST"
+  debug "Or, if available: sudo arch-chroot $DEST"
 }
 
 main "$@"
