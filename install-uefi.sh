@@ -51,4 +51,8 @@ mount "$ESP" "$MNT/boot"
 	pacman -S --noconfirm linux grub
 	grub-install --target=x86_64-efi --efi-directory=/boot --removable
 	grub-mkconfig -o /boot/grub/grub.cfg
+	# networking: DHCP via systemd-networkd, DNS via systemd-resolved (both ship with base)
+	printf "[Match]\nName=en* eth*\n\n[Network]\nDHCP=yes\n" >/etc/systemd/network/20-wired.network
+	systemctl enable systemd-networkd systemd-resolved
+	ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
 '
