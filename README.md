@@ -23,6 +23,8 @@ Once the process has finished, chroot to the destination directory (default user
     # arch-bootstrap -c myarch
     # arch-bootstrap.sh -c myarch echo "hello, world!"
 
+> See [scripts](./scripts) for helpers for QEMU testing + Quick UEFI install.
+
 License
 =======
 
