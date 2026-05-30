@@ -15,8 +15,8 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Install host dependencies
-        run: sudo apt-get update && sudo apt-get upgrade
+      # - name: Install host dependencies
+      #   run: sudo apt-get update && sudo apt-get upgrade
         # bash, coreutils, curl, sed, gawk, tar, gzip, chroot, xz, zstd - all already on base image.
 
       - name: Bootstrap a base Arch system
