@@ -167,11 +167,24 @@ configure_static_qemu() {
   cp "$QEMU_STATIC_BIN" "$DEST/usr/bin"
 }
 
+unmount_all() {
+  local DEST=$1
+  for m in proc sys dev; do
+    ! mountpoint -q "$DEST/$m" || LC_ALL=C umount -R "$DEST/$m"
+  done
+}
+
 install_packages() {
   local ARCH=$1 DEST=$2 PACKAGES=$3
   debug "install packages: $PACKAGES"
+  LC_ALL=C mount --types proc /proc "$DEST/proc"
+  LC_ALL=C mount --rbind /sys "$DEST/sys"
+  LC_ALL=C mount --make-rslave "$DEST/sys"
+  LC_ALL=C mount --rbind /dev "$DEST/dev"
+  LC_ALL=C mount --make-rslave "$DEST/dev"
   LC_ALL=C chroot "$DEST" /usr/bin/pacman \
     --noconfirm --disable-sandbox --arch $ARCH -Sy --overwrite \* $PACKAGES
+  unmount_all "$DEST"
 }
 
 show_usage() {
@@ -207,7 +220,7 @@ main() {
   local REPO=$(get_core_repo_url "$REPO_URL" "$ARCH")
   [[ -z "$DOWNLOAD_DIR" ]] && DOWNLOAD_DIR=$(mktemp -d)
   mkdir -p "$DOWNLOAD_DIR"
-  [[ -z "$PRESERVE_DOWNLOAD_DIR" ]] && trap "rm -rf '$DOWNLOAD_DIR'" KILL TERM EXIT
+  trap "unmount_all '$DEST'; [[ -n '$PRESERVE_DOWNLOAD_DIR' ]] || rm -rf '$DOWNLOAD_DIR'" KILL TERM EXIT
   debug "destination directory: $DEST"
   debug "core repository: $REPO"
   debug "temporary directory: $DOWNLOAD_DIR"
