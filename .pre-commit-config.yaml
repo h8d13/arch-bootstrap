@@ -7,6 +7,9 @@
 # setup:  pre-commit install     # runs on every commit
 # manual: pre-commit run --all-files
 
+# never touch Markdown
+exclude: '\.md$'
+
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0

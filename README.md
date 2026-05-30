@@ -1,7 +1,7 @@
 arch-bootstrap
 ==============
 
-Bootstrap a base Arch Linux system from any GNU distro.
+Bootstrap a base Arch Linux system from any GNU/Linux.
 
 Install
 =======
@@ -11,7 +11,7 @@ Install
 Examples
 =========
 
-Create a base arch distribution in directory 'myarch' (currently running arch by default):
+Create a base arch distribution in directory 'myarch':
 
     # arch-bootstrap myarch
 
@@ -20,16 +20,12 @@ Usage
 
 Once the process has finished, chroot to the destination directory (default user: root/root):
 
-    # chroot destination
+    # arch-bootstrap -c myarch
+    # arch-bootstrap.sh -c myarch echo "hello, world!"
 
-Note that some packages require some system directories to be mounted. Some of the commands you can try:
-
-    # mount --bind /proc myarch/proc
-    # mount --bind /sys myarch/sys
-    # mount --bind /dev myarch/dev
-    # mount --bind /dev/pts myarch/dev/pts
-    
 License
 =======
 
 This project is licensed under the terms of the MIT license
+
+---
