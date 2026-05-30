@@ -5,9 +5,9 @@ name: bootstrap-test
 
 on:
   push:
-    branches: [master, main]
-  pull_request:
-  workflow_dispatch:
+    branches: [master]
+    paths-ignore:
+      - '**.md'
 
 jobs:
   bootstrap-from-ubuntu:
