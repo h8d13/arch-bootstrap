@@ -28,7 +28,7 @@ PACMAN_PACKAGES=(
 )
 BASIC_PACKAGES=(${PACMAN_PACKAGES[*]} filesystem base)
 EXTRA_PACKAGES=(coreutils bash grep gawk file tar gzip systemd sed)
-DEFAULT_REPO_URL="http://mirrors.kernel.org/archlinux"
+DEFAULT_REPO_URL="https://geo.mirror.pkgbuild.com"
 DEFAULT_ARM_REPO_URL="http://mirror.archlinuxarm.org"
 DEFAULT_X86_REPO_URL="http://mirror.archlinux32.org"
 
