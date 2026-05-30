@@ -173,8 +173,10 @@ enter_chroot() {
 	trap "unmount_all '$DEST'" EXIT KILL TERM
 	mount_pseudo "$DEST"
 	[[ -e /etc/resolv.conf ]] && cp "/etc/resolv.conf" "$DEST/etc/resolv.conf"
-	LC_ALL=C chroot "$DEST" "$@" || true
+	local rc=0
+	LC_ALL=C chroot "$DEST" "$@" || rc=$?
 	unmount_all "$DEST"
+	return $rc
 }
 
 # Replace the bootstrap-temp pacman.conf (SigLevel=Never, curl -k, no DownloadUser)

@@ -20,7 +20,12 @@ jobs:
         # bash, coreutils, curl, sed, gawk, tar, gzip, chroot, xz, zstd - all already on base image.
 
       - name: Bootstrap a base Arch system
-        run: sudo ./arch-bootstrap.sh /tmp/myarch
+        run: |
+          # CI-only: make $DEST a real mountpoint so pacman CheckSpace works under -c
+          # (the runner's /tmp/myarch is just a dir on /; real installs mount a device here).
+          sudo mkdir -p /tmp/myarch
+          sudo mount --bind /tmp/myarch /tmp/myarch
+          sudo ./arch-bootstrap.sh /tmp/myarch
 
       - name: Assert the official pacman.conf was restored
         run: |
@@ -30,28 +35,17 @@ jobs:
           ! grep -qx 'SigLevel = Never' /tmp/myarch/etc/pacman.conf
           ! grep -q 'curl -k' /tmp/myarch/etc/pacman.conf
 
-      - name: Verify pacman, keyring and signed install inside the new system
+      # -c does the chroot setup (proc/sys/dev + resolv.conf) and teardown itself,
+      # and propagates the command's exit code, so the whole mount/chroot/umount
+      # dance collapses into one call.
+      - name: Verify pacman, keyring and signed install (via -c)
         run: |
-          set -eux
-          DEST=/tmp/myarch
-          # CI-only: bind the root onto itself FIRST (the runner's $DEST is a dir on /,
-          # not a mount) so CheckSpace can resolve the cachedir mountpoint. Must precede
-          # the pseudo-fs mounts; a plain --bind after them would shadow proc/sys/dev.
-          sudo mount --bind "$DEST" "$DEST"
-          sudo mount --types proc /proc "$DEST/proc"
-          sudo mount --rbind /sys "$DEST/sys"
-          sudo mount --rbind /dev "$DEST/dev"
-          # CI-only: /etc/mtab feeds CheckSpace's mount-point list (systemd provides it on a real system)
-          sudo ln -sf /proc/self/mounts "$DEST/etc/mtab"
-          sudo cp /etc/resolv.conf "$DEST/etc/resolv.conf"
-          #sudo chroot "$DEST" pacman-key --list-keys               # keyring populated
-          sudo chroot "$DEST" pacman -Sy --noconfirm                # repos reachable
-          sudo chroot "$DEST" pacman -S --noconfirm fastfetch       # download + sig-verify + install
-          sudo chroot "$DEST" fastfetch                             # installed binary runs
-          # add more steps here
-          # teardown: everything is nested under the self-bind; recursive umount with
-          # a lazy fallback for busy host cgroups pulled in by --rbind /sys
-          sudo umount -R "$DEST" || sudo umount -Rl "$DEST"
+          sudo ./arch-bootstrap.sh -c /tmp/myarch bash -c '
+            set -eux
+            pacman -Sy --noconfirm                 # repos reachable
+            pacman -S --noconfirm fastfetch        # download + sig-verify + install
+            fastfetch                              # installed binary runs
+          '
 
-      - name: Smoke-test -c chroot mode (no arch-install-scripts on the host)
+      - name: Smoke-test -c with a one-off command
         run: sudo ./arch-bootstrap.sh -c /tmp/myarch echo "hello, world!"
