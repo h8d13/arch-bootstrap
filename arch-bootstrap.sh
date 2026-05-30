@@ -150,7 +150,8 @@ mount_pseudo() {
 unmount_all() {
   local DEST=$1
   for m in proc sys dev; do
-    ! mountpoint -q "$DEST/$m" || LC_ALL=C umount -R "$DEST/$m"
+    # lazy detach (-l) as fallback: /dev (and lingering gpg-agent etc.) can be busy
+    ! mountpoint -q "$DEST/$m" || LC_ALL=C umount -R "$DEST/$m" || LC_ALL=C umount -Rl "$DEST/$m"
   done
 }
 
@@ -200,6 +201,8 @@ init_keyring() {
   mount_pseudo "$DEST"
   LC_ALL=C chroot "$DEST" /usr/bin/pacman-key --init
   LC_ALL=C chroot "$DEST" /usr/bin/pacman-key --populate archlinux
+  # pacman-key leaves a gpg-agent holding /dev; stop it so umount is clean
+  LC_ALL=C chroot "$DEST" /usr/bin/gpgconf --homedir /etc/pacman.d/gnupg --kill all || true
   unmount_all "$DEST"
 }
 
