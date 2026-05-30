@@ -49,8 +49,9 @@ jobs:
           sudo chroot "$DEST" pacman -S --noconfirm fastfetch       # download + sig-verify + install
           sudo chroot "$DEST" fastfetch                             # installed binary runs
           sudo chroot "$DEST" cat /etc/os-release
-          sudo umount -R "$DEST/proc" "$DEST/sys" "$DEST/dev"
-          sudo umount "$DEST"
+          # teardown: everything is nested under the self-bind; recursive umount with
+          # a lazy fallback for busy host cgroups pulled in by --rbind /sys
+          sudo umount -R "$DEST" || sudo umount -Rl "$DEST"
 
       - name: Smoke-test -c chroot mode (no arch-install-scripts on the host)
         run: sudo ./arch-bootstrap.sh -c /tmp/myarch </dev/null
