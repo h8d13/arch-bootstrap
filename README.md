@@ -11,14 +11,14 @@ Install
 Examples
 =========
 
-Create a base arch distribution in directory 'myarch':
+Create a base arch distribution in directory `myarch`:
 
     # arch-bootstrap myarch
 
 Usage
 =====
 
-Once the process has finished, chroot to the destination directory (default user: root/root):
+Once the process has finished, chroot to the destination directory (default user/pw: root/root):
 
     # arch-bootstrap -c myarch
     # arch-bootstrap.sh -c myarch echo "hello, world!"
