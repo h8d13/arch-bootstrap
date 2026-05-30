@@ -21,10 +21,14 @@ jobs:
 
       - name: Bootstrap a base Arch system
         run: |
-          # CI-only: make $DEST a real mountpoint so pacman CheckSpace works under -c
-          # (the runner's /tmp/myarch is just a dir on /; real installs mount a device here).
+          # CI: bootstrap onto a real loopback filesystem so /tmp/myarch is a genuine
+          # mountpoint -> pacman CheckSpace works under -c, exactly like a real install
+          # onto a mounted device. (A plain dir on / is not a mountpoint; a self-bind
+          # would break the bootstrap's own /sys teardown via mount propagation.)
+          truncate -s 3G /tmp/arch.img
+          mkfs.ext4 -qF /tmp/arch.img
           sudo mkdir -p /tmp/myarch
-          sudo mount --bind /tmp/myarch /tmp/myarch
+          sudo mount -o loop /tmp/arch.img /tmp/myarch
           sudo ./arch-bootstrap.sh /tmp/myarch
 
       - name: Assert the official pacman.conf was restored
