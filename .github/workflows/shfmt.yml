@@ -1,0 +1,25 @@
+name: shfmt
+
+# Enforce shell formatting Read-only: fails the build
+# when a script isn't formatted; run `shfmt -i 0 -w .` locally to fix.
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  shfmt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install shfmt
+        run: |
+          sudo curl -sSL https://github.com/mvdan/sh/releases/download/v3.13.1/shfmt_v3.13.1_linux_amd64 -o /usr/local/bin/shfmt
+          sudo chmod +x /usr/local/bin/shfmt
+          shfmt --version
+
+      - name: Check formatting
+        run: shfmt -d .

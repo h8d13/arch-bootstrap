@@ -1,0 +1,48 @@
+name: bootstrap-test
+
+# The whole point of this script is bootstrapping Arch from a non-Arch GNU distro.
+# Running it on an Ubuntu runner is the canonical proof that the claim holds.
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  bootstrap-from-ubuntu:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install host dependencies
+        run: sudo apt-get update && sudo apt-get install -y zstd
+
+      - name: Bootstrap a base Arch system
+        run: sudo ./arch-bootstrap.sh /tmp/myarch
+
+      - name: Assert the official pacman.conf was restored
+        run: |
+          set -eux
+          # SigLevel back to the secure default, bootstrap-temp markers gone
+          grep -qE '^SigLevel[[:space:]]*=[[:space:]]*Required' /tmp/myarch/etc/pacman.conf
+          ! grep -qx 'SigLevel = Never' /tmp/myarch/etc/pacman.conf
+          ! grep -q 'curl -k' /tmp/myarch/etc/pacman.conf
+
+      - name: Verify pacman, keyring and signed install inside the new system
+        run: |
+          set -eux
+          DEST=/tmp/myarch
+          sudo mount --types proc /proc "$DEST/proc"
+          sudo mount --rbind /sys "$DEST/sys"
+          sudo mount --rbind /dev "$DEST/dev"
+          sudo cp /etc/resolv.conf "$DEST/etc/resolv.conf"
+          sudo chroot "$DEST" pacman-key --list-keys            # keyring populated
+          sudo chroot "$DEST" pacman -Sy --noconfirm            # repos reachable
+          sudo chroot "$DEST" pacman -S --noconfirm fastfetch       # download + sig-verify + install
+          sudo chroot "$DEST" fastfetch                             # installed binary runs
+          sudo chroot "$DEST" cat /etc/os-release
+          sudo umount -R "$DEST/proc" "$DEST/sys" "$DEST/dev"
+
+      - name: Smoke-test -c chroot mode (no arch-install-scripts on the host)
+        run: sudo ./arch-bootstrap.sh -c /tmp/myarch </dev/null

@@ -3,11 +3,6 @@ arch-bootstrap
 
 Bootstrap a base Arch Linux system from any GNU distro.
 
-NOTE: This script downloads packages from scratch. For a more simple approach (using archlinux-bootstrap-x86_64 files), check:
-
-https://wiki.archlinux.org/title/Install_Arch_Linux_from_existing_Linux
-https://github.com/wick3dr0se/archstrap
-
 Install
 =======
 
@@ -19,10 +14,6 @@ Examples
 Create a base arch distribution in directory 'myarch' (currently running arch by default):
 
     # arch-bootstrap myarch
-   
-The same but use arch x86_64 and a given repository source:
-
-    # arch-bootstrap -a x86_64 -r "ftp://ftp.archlinux.org" myarch 
 
 Usage
 =====
